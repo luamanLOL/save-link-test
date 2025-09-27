@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Console Save File Editor</title>
+    <style>
+        :root {
+            --bg-color: #0e101c;
+            --secondary-bg: #1a1d2d;
+            --text-color: #e5e7eb;
+            --border-color: #4b5563;
+            --accent-color: #007BFF;
+            --success-color: #22c55e;
+            --error-color: #dc2626;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: var(--secondary-bg);
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        h1 {
+            color: var(--accent-color);
+            margin-top: 0;
+        }
+        p, li {
+            color: #d1d5db;
+            line-height: 1.6;
+        }
+        .instructions {
+            text-align: left;
+            margin-top: 2rem;
+            background-color: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 6px;
+        }
+        .instructions code {
+            background-color: var(--bg-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+        .controls {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .controls button, .controls label {
+            background-color: var(--accent-color);
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+        }
+        .controls button:hover, .controls label:hover {
+            background-color: #0062CC;
+        }
+        #file-input { display: none; }
+        #status-bar {
+            margin-top: 2rem;
+            min-height: 24px;
+            font-weight: bold;
+            color: var(--success-color);
+            transition: color 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Console-Based Save Editor</h1>
+        <p>This tool uses the Filebin.net API to generate a temporary import link for your edited save files.</p>
+        
+        <div class="controls">
+            <label for="file-input">1. Load Save File</label>
+            <input type="file" id="file-input" accept=".txt,.json">
+            <button id="get-link-btn">2. Get Temporary Link</button>
+            <button id="export-btn">3. Export to File</button>
+        </div>
+
+        <div class="instructions">
+            <h3 style="margin-top:0;">How to Use:</h3>
+            <ol>
+                <li>Click <strong>"Load Save File"</strong>.</li>
+                <li>Open the Developer Console (press <strong>F12</strong>) to edit the <code>saveData</code> object.</li>
+                <li>When finished editing, click <strong>"Get Temporary Link"</strong>.</li>
+                <li>A pop-up will appear with a direct download URL. Copy it and paste it into Hoop Land.</li>
+            </ol>
+        </div>
+
+        <div id="status-bar"></div>
+    </div>
+
+    <script>
+        window.saveData = null;
+        let currentFileName = 'edited-save.json';
+
+        const fileInput = document.getElementById('file-input');
+        const getLinkBtn = document.getElementById('get-link-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const statusBar = document.getElementById('status-bar');
+
+        function handleFileLoad(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Sanitize filename and replace spaces with hyphens for the URL
+            currentFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '').replace(/\s/g, '-'); 
+
+            statusBar.style.color = 'var(--text-color)';
+            statusBar.textContent = `Parsing ${file.name}...`;
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                setTimeout(() => {
+                    try {
+                        window.saveData = JSON.parse(e.target.result);
+                        statusBar.style.color = 'var(--success-color)';
+                        statusBar.textContent = `✅ File loaded! You can now edit 'window.saveData' in the console (F12).`;
+                        console.clear();
+                        console.log("✅ File loaded! Edit the 'saveData' object below.", window.saveData);
+                        console.info("Use the format: window.saveData.propertyName = newValue;");
+                    } catch (error) {
+                        statusBar.style.color = 'var(--error-color)';
+                        statusBar.textContent = `❌ Error: Could not parse the file. Is it valid JSON?`;
+                    }
+                }, 50);
+            };
+            reader.readAsText(file);
+        }
+        
+        // --- CORRECTED FUNCTION FOR UPLOAD AND RAW LINK RETRIEVAL ---
+        async function handleGetTempLink() {
+            if (!window.saveData) {
+                alert('No data loaded. Please load a file first.');
+                return;
+            }
+
+            statusBar.style.color = 'var(--text-color)';
+            statusBar.textContent = 'Uploading to Filebin... (this can take a moment)';
+
+            try {
+                // Prepare the JSON content
+                const content = JSON.stringify(window.saveData);
+                const fileToUpload = new File([content], currentFileName, { type: "application/json" });
+                
+                // Construct the unique bin name and the final RAW URL
+                const binName = Math.random().toString(36).substring(2, 12);
+                // The URL used for POSTing the file is the direct raw download URL!
+                const rawUrl = `https://filebin.net/${binName}/${currentFileName}`;
+
+                // Perform the upload request
+                const response = await fetch(rawUrl, {
+                    method: 'POST',
+                    body: fileToUpload,
+                    // CRITICAL: NO custom Content-Type header is needed. The browser sets it correctly for the Blob/File.
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Filebin API failed. Status: ${response.status}. Response: ${errorText}`);
+                }
+
+                // If the response is OK, the rawUrl is valid.
+                
+                statusBar.style.color = 'var(--success-color)';
+                statusBar.textContent = '✅ Success! Direct link created. It will expire in 6 days.';
+                
+                // Prompt the user with the direct RAW URL
+                prompt("Copy this direct link and paste it into Hoop Land:", rawUrl);
+
+            } catch (error) {
+                statusBar.style.color = 'var(--error-color)';
+                statusBar.textContent = `❌ Could not create link. Check the console (F12) for details.`;
+                console.error("Link Creation Failed:", error);
+                console.warn("If you see a CORS error, your local server setup might be blocking the request. If this persists, you may need to host this file editor publicly (e.g., GitHub Pages) or use a cloud object storage service with a proper backend.");
+            }
+        }
+        
+        function handleFileExport() {
+            if (!window.saveData) { alert('No data loaded.'); return; }
+            try {
+                const content = JSON.stringify(window.saveData, null, 2); // Pretty-print for clean export
+                const blob = new Blob([content], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = currentFileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                statusBar.style.color = 'var(--success-color)';
+                statusBar.textContent = `✅ Successfully exported ${currentFileName}`;
+            } catch (error) {
+                statusBar.style.color = 'var(--error-color)';
+                statusBar.textContent = `❌ Error during export: ${error.message}`;
+            }
+        }
+
+        fileInput.addEventListener('change', handleFileLoad);
+        getLinkBtn.addEventListener('click', handleGetTempLink);
+        exportBtn.addEventListener('click', handleFileExport);
+    </script>
+
+</body>
+</html>
