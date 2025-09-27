@@ -11,32 +11,28 @@ async function handleGetTempLink() {
         const content = JSON.stringify(window.saveData);
         
         // 1. CRITICAL FIX: Create a generic Blob with NO MIME type. 
-        // This stops the browser from adding the restrictive 'Content-Type: application/json'.
+        // This stops the browser from adding the restrictive 'Content-Type: application/json' header.
         const rawBlob = new Blob([content]);
         
-        // 2. Construct the unique bin name and the target URL
+        // 2. Construct the unique bin name and the final RAW URL
         const binName = Math.random().toString(36).substring(2, 12);
-        
-        // Target URL is the BIN URL only, WITHOUT the filename.
-        // We will pass the filename as a header or append it to the path in a moment.
-        const binApiUrl = `https://filebin.net/${binName}`;
+        // The upload target URL is the direct path (bin URL + filename).
+        const rawUrl = `https://filebin.net/${binName}/${currentFileName}`;
 
-        // 3. Perform the upload request (POST to the bin URL)
-        const response = await fetch(`${binApiUrl}/${currentFileName}`, {
+        // 3. Perform the upload request
+        const response = await fetch(rawUrl, {
             method: 'POST',
             body: rawBlob, // Upload the raw content
-            // Filebin expects the filename in the path, so we use `${binApiUrl}/${currentFileName}`.
-            // Still NO custom headers!
+            // ABSOLUTELY NO HEADERS OBJECT HERE. Let the browser handle everything else.
         });
         
         if (!response.ok) {
-            // Read error body for debugging
+            // Attempt to read error body for debugging
             const errorText = await response.text();
             throw new Error(`Filebin API failed. Status: ${response.status}. Response: ${errorText}`);
         }
 
-        // The raw download URL must be manually constructed using the successful path.
-        const rawUrl = `${binApiUrl}/${currentFileName}`;
+        // If the response is OK, the rawUrl is valid.
         
         statusBar.style.color = 'var(--success-color)';
         statusBar.textContent = '✅ Success! Direct link created. It will expire in 6 days.';
@@ -48,6 +44,6 @@ async function handleGetTempLink() {
         statusBar.style.color = 'var(--error-color)';
         statusBar.textContent = `❌ Could not create link. Check the console (F12) for details.`;
         console.error("Link Creation Failed:", error);
-        console.warn("If this still fails, Filebin has likely restricted their CORS policy. You MUST switch to a service like AWS S3 with Pre-Signed URLs.");
+        console.warn("If this still fails, Filebin has restricted its CORS policy. Time to switch services.");
     }
 }
