@@ -155,7 +155,7 @@
             }
 
             // !!! LIVE WORKER URL - THIS IS YOUR CUSTOM API ENDPOINT !!!
-            const workerApiUrl = "https://hoopland-links.workers.dev"; 
+            const workerApiUrl = "https://save-link-worker.hoopland-links.workers.dev"; 
 
             statusBar.style.color = 'var(--text-color)';
             statusBar.textContent = 'Uploading file to secure server... (Creating link, then deleting file)';
@@ -182,7 +182,7 @@
                 const signedUrl = result.signedUrl;
 
                 statusBar.style.color = 'var(--success-color)';
-                statusBar.textContent = `✅ Success! Link created and file deleted. It will expire in 1 hour.`;
+                statusBar.textContent = `✅ Success! Link created and file deleted. It will expire in 1 minute.`;
                 
                 // 3. Prompt the user with the direct RAW URL
                 prompt("Copy this direct link and paste it into Hoop Land:", signedUrl);
