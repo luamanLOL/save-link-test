@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Console Save File Editor</title>
+    <title>Hoop Land Save Link Generator</title>
     <style>
         :root {
             --bg-color: #0e101c;
@@ -87,7 +87,7 @@
 
     <div class="container">
         <h1>Console-Based Save Editor</h1>
-        <p>This tool uses a secure, zero-cost Cloudflare Worker to generate a temporary import link for your edited save files.</p>
+        <p>This tool uses your private Cloudflare Worker to generate a secure, temporary import link.</p>
         
         <div class="controls">
             <label for="file-input">1. Load Save File</label>
@@ -147,29 +147,23 @@
             reader.readAsText(file);
         }
         
-        // --- CLIENT-SIDE FUNCTION (Talks to the Cloudflare Worker) ---
+        // --- WORKER-BASED FUNCTION ---
         async function handleGetTempLink() {
             if (!window.saveData) {
                 alert('No data loaded. Please load a file first.');
                 return;
             }
 
-            // !!! IMPORTANT: YOU MUST REPLACE THIS PLACEHOLDER !!!
-            // This URL is where your Cloudflare Worker is deployed.
-            const workerApiUrl = "YOUR_CLOUDFLARE_WORKER_URL_HERE"; 
-
-            if (workerApiUrl === "YOUR_CLOUDFLARE_WORKER_URL_HERE") {
-                alert("Worker API URL not set! Please deploy your worker (Step 3) and update index.html.");
-                return;
-            }
+            // !!! LIVE WORKER URL - THIS IS YOUR CUSTOM API ENDPOINT !!!
+            const workerApiUrl = "https://hoopland-links.workers.dev"; 
 
             statusBar.style.color = 'var(--text-color)';
-            statusBar.textContent = 'Uploading save file to R2 via Worker...';
+            statusBar.textContent = 'Uploading file to secure server... (Creating link, then deleting file)';
 
             try {
                 const content = JSON.stringify(window.saveData);
 
-                // 1. Send the file content to the Worker API
+                // 1. Send the file content to the Worker API via POST
                 const response = await fetch(workerApiUrl, {
                     method: 'POST',
                     body: content, 
@@ -180,15 +174,15 @@
 
                 if (!response.ok) {
                     const errorData = await response.text();
-                    throw new Error(`API failed. Status: ${response.status}. Error: ${errorData}`);
+                    throw new Error(`Worker API failed. Status: ${response.status}. Error: ${errorData}`);
                 }
 
-                // 2. Worker returns the signed URL
+                // 2. Worker returns the signed URL (which is now guaranteed to work)
                 const result = await response.json();
                 const signedUrl = result.signedUrl;
 
                 statusBar.style.color = 'var(--success-color)';
-                statusBar.textContent = `✅ Success! Direct link created. (Valid for 1 hour).`;
+                statusBar.textContent = `✅ Success! Link created and file deleted. It will expire in 1 hour.`;
                 
                 // 3. Prompt the user with the direct RAW URL
                 prompt("Copy this direct link and paste it into Hoop Land:", signedUrl);
@@ -203,7 +197,7 @@
         function handleFileExport() {
             if (!window.saveData) { alert('No data loaded.'); return; }
             try {
-                const content = JSON.stringify(window.saveData, null, 2); // Pretty-print for clean export
+                const content = JSON.stringify(window.saveData, null, 2); 
                 const blob = new Blob([content], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
